@@ -1,0 +1,381 @@
+{
+  "name": "2. Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        -80
+      ],
+      "id": "0fc587c8-7b82-47bb-9b10-2ef287fecd0b",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "id"
+        },
+        "filterByFormula": "AND({Status} = 'Approved', IS_BEFORE({Scheduled Time}, NOW()))",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        -80
+      ],
+      "id": "70c74ec5-36da-4075-a1d2-d82b7b41b684",
+      "name": "Get Due Posts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// SIMULATED PUBLISHER\n// In a real build, each platform would be an API call\n// (Meta Graph API, TikTok, LinkedIn). Here we fake it,\n// with a random chance of failure so we can demo error handling.\n\nconst TIMEZONE = 'America/Los_Angeles';\nconst FAIL_RATE = 0.3; // 30% chance each platform fails\nconst PLATFORMS = ['Instagram', 'TikTok', 'Facebook', 'LinkedIn'];\nconst ERRORS = [\n  'API rate limit exceeded (429)',\n  'Access token expired (401)',\n  'Media upload failed: file too large',\n  'Platform temporarily unavailable (503)',\n];\n\nreturn $input.all().map(item => {\n  const record = item.json;\n  const fields = record.fields || record;\n  const time = DateTime.now().setZone(TIMEZONE).toFormat('yyyy-MM-dd HH:mm');\n\n  // Is this a video post?\n  const video = Array.isArray(fields.Video) && fields.Video.length ? fields.Video[0] : null;\n  const postType = video ? 'Video' : 'Post';\n\n  const results = PLATFORMS.map(platform => {\n    if (!fields[platform]) {\n      return { platform, ok: false, message: 'No caption for this platform' };\n    }\n    if (Math.random() < FAIL_RATE) {\n      const error = ERRORS[Math.floor(Math.random() * ERRORS.length)];\n      return { platform, ok: false, message: error };\n    }\n    const postId = platform.toLowerCase() + '_' + Math.random().toString(36).slice(2, 10);\n    return { platform, ok: true, message: `${postType} published (ID: ${postId})` };\n  });\n\n  const failed = results.filter(r => !r.ok);\n  const lines = results.map(r => `${r.ok ? '✅' : '❌'} ${r.platform}: ${r.message}`);\n  if (video) lines.unshift(`🎬 Video: ${video.filename}`);\n\n  return {\n    json: {\n      id: record.id,\n      title: fields.Title,\n      status: failed.length === 0 ? 'Published' : 'Failed',\n      failedPlatforms: failed.map(r => r.platform).join(', '),\n      log: `[${time}]\\n${lines.join('\\n')}`,\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -80
+      ],
+      "id": "0f80b7e6-2695-48a1-ae14-de9f951740ac",
+      "name": "Simulate Publish"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_AIRTABLE_TABLE_ID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "Publish Log": "={{ $json.log }}",
+            "Status": "={{ $json.status }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Brief",
+              "displayName": "Brief",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Instagram",
+              "displayName": "Instagram",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "TikTok",
+              "displayName": "TikTok",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Facebook",
+              "displayName": "Facebook",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "LinkedIn",
+              "displayName": "LinkedIn",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Image Prompt",
+              "displayName": "Image Prompt",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Video Script",
+              "displayName": "Video Script",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Publish Log",
+              "displayName": "Publish Log",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Feedback",
+              "displayName": "Feedback",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Draft",
+                  "value": "Draft"
+                },
+                {
+                  "name": "Approved",
+                  "value": "Approved"
+                },
+                {
+                  "name": "Rejected",
+                  "value": "Rejected"
+                },
+                {
+                  "name": "Published",
+                  "value": "Published"
+                },
+                {
+                  "name": "Failed",
+                  "value": "Failed"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Scheduled Time",
+              "displayName": "Scheduled Time",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        -80
+      ],
+      "id": "9c6e5b54-88a0-496d-81c0-cff0dfb9a920",
+      "name": "Update Status"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d2d0eab4-c929-411a-b581-4fcec0af1586",
+              "leftValue": "={{ $json.fields.Status }}",
+              "rightValue": "Failed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        -80
+      ],
+      "id": "68167667-d4b6-4ec9-af74-c4a13f14b5f1",
+      "name": "Did it fail?"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🚨 Post failed to publish\n\n📝 Post: {{ $('Simulate Publish').item.json.title }}\n❌ Failed on: {{ $('Simulate Publish').item.json.failedPlatforms }}\n\nDetails:\n{{ $('Simulate Publish').item.json.log }}\n\nPlease review in Airtable and set the status back to Approved to retry.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1120,
+        -80
+      ],
+      "id": "80ee3030-74ce-4bd2-a0a5-7135ffe07c64",
+      "name": "Send Failure Alert"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Due Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Due Posts": {
+      "main": [
+        [
+          {
+            "node": "Simulate Publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Publish": {
+      "main": [
+        [
+          {
+            "node": "Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status": {
+      "main": [
+        [
+          {
+            "node": "Did it fail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did it fail?": {
+      "main": [
+        [
+          {
+            "node": "Send Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "tags": [],
+  "pinData": {}
+}
